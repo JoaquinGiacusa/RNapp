@@ -45,6 +45,8 @@ const HomeScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const ref = React.useRef(null);
 
+  const [isOpen, setIsOpen] = useState(false);
+
   useScrollToTop(ref);
   const {postList} = useGetPost();
 
@@ -68,7 +70,7 @@ const HomeScreen = () => {
               <View key={item.id.toString()} style={styles.card}>
                 <TouchableOpacity
                   style={styles.moreOptions}
-                  onPress={() => console.log('pressed')}>
+                  onPress={() => setIsOpen(!isOpen)}>
                   <MoreVerticalIcon color={'#000'} />
                 </TouchableOpacity>
                 <Image source={{uri: item.url}} style={styles.image} />
@@ -88,7 +90,7 @@ const HomeScreen = () => {
           }
         />
       )}
-      <DraggableBottomModal />
+      {isOpen && <DraggableBottomModal isOpen={isOpen} />}
     </View>
   );
 };

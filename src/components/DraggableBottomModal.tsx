@@ -1,4 +1,4 @@
-import React, {useRef} from 'react';
+import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {
   Animated,
   Dimensions,
@@ -8,70 +8,93 @@ import {
   View,
 } from 'react-native';
 const WINDOW_HEIGHT = Dimensions.get('screen').height;
+const INITAL_POSITION_VALUE = 250;
+const DraggableBottomModal = ({isOpen}: {isOpen: boolean}) => {
+  const animatedValue = useRef(new Animated.ValueXY({y: 0, x: 0})).current;
 
-const BOTTOM_SHEET_MAX_HEIGHT = WINDOW_HEIGHT * 0.6;
-const BOTTOM_SHEET_MIN_HEIGHT = WINDOW_HEIGHT * 0.1;
-const MAX_UPWARD_TRANSLATE_Y =
-  BOTTOM_SHEET_MIN_HEIGHT - BOTTOM_SHEET_MAX_HEIGHT; // negative number;
-const MAX_DOWNWARD_TRANSLATE_Y = 0;
-const DRAG_THRESHOLD = 50;
+  useEffect(() => {
+    //on open modal
+    if (isOpen) {
+      Animated.timing(animatedValue, {
+        duration: 150,
+        toValue: {y: INITAL_POSITION_VALUE, x: 0},
+        useNativeDriver: true,
+      }).start(() => {
+        animatedValue.extractOffset();
+      });
+    }
+  }, []);
 
-const DraggableBottomModal = () => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const lastGestureDy = useRef(0);
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        animatedValue.setOffset(lastGestureDy.current);
-      },
-      onPanResponderMove: (e, gesture) => {
-        animatedValue.setValue(gesture.dy);
-      },
-      onPanResponderRelease: (e, gesture) => {
-        animatedValue.flattenOffset();
-        lastGestureDy.current += gesture.dy;
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
 
-        // if (lastGestureDy.current < MAX_UPWARD_TRANSLATE_Y) {
-        //   lastGestureDy.current = MAX_UPWARD_TRANSLATE_Y;
-        // } else if (lastGestureDy.current > MAX_DOWNWARD_TRANSLATE_Y) {
-        //   lastGestureDy.current = MAX_DOWNWARD_TRANSLATE_Y;
-        // }
+    onPanResponderMove: (e, gesture) => {
+      animatedValue.y.setValue(-gesture.dy);
+    },
+    onPanResponderRelease: (e, gesture) => {
+      animatedValue.extractOffset();
 
-        if (gesture.dy > 0) {
-          // dragging down
-          if (gesture.dy <= 50) {
-            springAnimation('up');
-          } else {
-            springAnimation('down');
-          }
-        } else {
-          // dragging up
-          if (gesture.dy >= -DRAG_THRESHOLD) {
-            springAnimation('down');
-          } else {
-            springAnimation('up');
-          }
-        }
-      },
-    }),
-  ).current;
+      if (-gesture.dy > 100) {
+        console.log('es mayor');
+        Animated.spring(animatedValue, {
+          toValue: {y: 150, x: 0},
+          useNativeDriver: true,
+        }).start(() => {
+          // animatedValue.extractOffset();
+        });
+      } else if (Math.abs(gesture.dy) < 100) {
+        // animatedValue.extractOffset();
+        console.log(animatedValue.y);
+        console.log('es menor');
+        Animated.spring(animatedValue, {
+          toValue: {y: INITAL_POSITION_VALUE, x: 0},
+          useNativeDriver: true,
+        }).start(() => animatedValue.extractOffset());
+      }
+
+      // if (Math.abs(moveGestureY) < 100) {
+      //   console.log('Es menor a 100');
+      //   Animated.spring(animatedValue, {
+      //     toValue: {y: Number(animatedValue.y) - WINDOW_HEIGHT * 0.4, x: 0},
+      //     useNativeDriver: true,
+      //   }).start();
+      // }
+
+      // if (gesture.dy > 0) {
+      //   // dragging down
+      //   if (gesture.dy <= 50) {
+      //     springAnimation('up');
+      //   } else {
+      //     springAnimation('down');
+      //   }
+      // } else {
+      //   // dragging up
+      //   if (gesture.dy >= -50) {
+      //     springAnimation('down');
+      //   } else {
+      //     springAnimation('up');
+      //   }
+      // }
+    },
+  });
 
   const springAnimation = (direction: 'up' | 'down') => {
-    lastGestureDy.current =
-      direction === 'down' ? MAX_DOWNWARD_TRANSLATE_Y : MAX_UPWARD_TRANSLATE_Y;
+    // lastGestureDy.current = direction === 'down' ? 0 : -400;
+
+    let direc = direction === 'up' ? 1 : -1;
+
     Animated.spring(animatedValue, {
-      toValue: lastGestureDy.current,
+      toValue: direc * 400,
       useNativeDriver: true,
     }).start();
   };
-  console.log(-WINDOW_HEIGHT * 0.7);
+
   const bottomSheetAnimation = {
     transform: [
       {
-        translateY: animatedValue.interpolate({
-          inputRange: [-WINDOW_HEIGHT * 0.8, 0],
-          outputRange: [-WINDOW_HEIGHT * 0.8, 0],
+        translateY: animatedValue.y.interpolate({
+          inputRange: [-800, 800],
+          outputRange: [800, -800],
           extrapolate: 'clamp',
         }),
       },
@@ -79,13 +102,13 @@ const DraggableBottomModal = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.bottomSheet, bottomSheetAnimation]}>
-        <View style={styles.draggableArea} {...panResponder.panHandlers}>
-          <View style={styles.dragHandle} />
-        </View>
+    // <View style={styles.container}>
+    <Animated.View style={[styles.bottomSheet, {...bottomSheetAnimation}]}>
+      <Animated.View style={styles.draggableArea} {...panResponder.panHandlers}>
+        <View style={styles.dragHandle} />
       </Animated.View>
-    </View>
+    </Animated.View>
+    // </View>
   );
 };
 
@@ -94,13 +117,14 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     zIndex: 50,
+    borderWidth: 1,
   },
   bottomSheet: {
     zIndex: 55,
     position: 'absolute',
     width: '100%',
-    height: WINDOW_HEIGHT * 0.9,
-    bottom: -WINDOW_HEIGHT * 0.8,
+    height: 800,
+    bottom: -700,
     ...Platform.select({
       android: {elevation: 3},
       ios: {
@@ -118,7 +142,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
   },
   draggableArea: {
-    width: 132,
+    width: '100%',
     height: 32,
     alignSelf: 'center',
     justifyContent: 'center',
